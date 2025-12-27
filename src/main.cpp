@@ -177,22 +177,22 @@ int main()
     {
         glfwPollEvents();
 
-// --- One-press-per-action input (avoids fast auto-repeat when key is held)
-static int prev[GLFW_KEY_LAST + 1] = {0};
-auto pressedOnce = [&](int key) -> bool {
-    int cur = glfwGetKey(w, key);
-    bool fired = (cur == GLFW_PRESS && prev[key] != GLFW_PRESS);
-    prev[key] = cur;
-    return fired;
-};
+        // --- One-press-per-action input (avoids fast auto-repeat when key is held)
+        static int prev[GLFW_KEY_LAST + 1] = {0};
+        auto pressedOnce = [&](int key) -> bool {
+            int cur = glfwGetKey(w, key);
+            bool fired = (cur == GLFW_PRESS && prev[key] != GLFW_PRESS);
+            prev[key] = cur;
+            return fired;
+        };
 
-if (pressedOnce(GLFW_KEY_ESCAPE))
-    glfwSetWindowShouldClose(w, GLFW_TRUE);
+        if (pressedOnce(GLFW_KEY_ESCAPE))
+            glfwSetWindowShouldClose(w, GLFW_TRUE);
 
-// Mode switches (one press)
-if (pressedOnce(GLFW_KEY_1)) { mode = Mode::TRIANGLE; setWindowTitle(w, mode, N); }
-if (pressedOnce(GLFW_KEY_2)) { mode = Mode::QUAD;     setWindowTitle(w, mode, N); }
-if (pressedOnce(GLFW_KEY_3)) { mode = Mode::NGON;     setWindowTitle(w, mode, N); }
+        // Mode switches (one press)
+        if (pressedOnce(GLFW_KEY_1)) { mode = Mode::TRIANGLE; setWindowTitle(w, mode, N); }
+        if (pressedOnce(GLFW_KEY_2)) { mode = Mode::QUAD;     setWindowTitle(w, mode, N); }
+        if (pressedOnce(GLFW_KEY_3)) { mode = Mode::NGON;     setWindowTitle(w, mode, N); }
 
 
         // Adjust N only in NGON mode (simple key polling; good enough for lab)
