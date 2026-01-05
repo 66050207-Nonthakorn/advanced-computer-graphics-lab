@@ -107,7 +107,7 @@ Repo: https://github.com/momotheoxy/AdvancedCGStarter
 
 3. Tools:
    ```bash
-   brew install git cmake ninja
+   brew install git cmake ninja pkg-config
    ```
 
 4. vcpkg:
