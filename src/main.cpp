@@ -29,24 +29,32 @@ Controls:
 
 static const GLint WIDTH = 900, HEIGHT = 650;
 
-enum class Mode { TRIANGLE=1, QUAD=2, NGON=3 };
+enum class Mode
+{
+    TRIANGLE = 1,
+    QUAD = 2,
+    NGON = 3
+};
 
 struct MeshGL
 {
-    GLuint VAO=0, VBO=0, EBO=0;
-    GLsizei indexCount=0;
+    GLuint VAO = 0, VBO = 0, EBO = 0;
+    GLsizei indexCount = 0;
 
     void destroy()
     {
-        if(EBO) glDeleteBuffers(1, &EBO);
-        if(VBO) glDeleteBuffers(1, &VBO);
-        if(VAO) glDeleteVertexArrays(1, &VAO);
-        VAO=VBO=EBO=0;
-        indexCount=0;
+        if (EBO)
+            glDeleteBuffers(1, &EBO);
+        if (VBO)
+            glDeleteBuffers(1, &VBO);
+        if (VAO)
+            glDeleteVertexArrays(1, &VAO);
+        VAO = VBO = EBO = 0;
+        indexCount = 0;
     }
 };
 
-static MeshGL buildIndexedMesh(const std::vector<float>& positions, const std::vector<unsigned int>& indices)
+static MeshGL buildIndexedMesh(const std::vector<float> &positions, const std::vector<unsigned int> &indices)
 {
     MeshGL m;
     glGenVertexArrays(1, &m.VAO);
@@ -54,15 +62,23 @@ static MeshGL buildIndexedMesh(const std::vector<float>& positions, const std::v
 
     glGenBuffers(1, &m.VBO);
     glBindBuffer(GL_ARRAY_BUFFER, m.VBO);
-    glBufferData(GL_ARRAY_BUFFER, positions.size()*sizeof(float), positions.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, positions.size() * sizeof(float), positions.data(), GL_STATIC_DRAW);
 
     glGenBuffers(1, &m.EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m.EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size()*sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    // aPos (vec3)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
+    // aPos (vec3) - location 0
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
+    
+    // aNormal (vec3) - location 1
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    
+    // aUV (vec2) - location 2
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
 
@@ -70,74 +86,66 @@ static MeshGL buildIndexedMesh(const std::vector<float>& positions, const std::v
     return m;
 }
 
-static MeshGL makeTriangle()
+static MeshGL makeSphere(int stacks = 32, int slices = 64)
 {
-    // CCW triangle
-    std::vector<float> pos = {
-        -0.6f, -0.5f, 0.0f,
-         0.6f, -0.5f, 0.0f,
-         0.0f,  0.6f, 0.0f
-    };
-    std::vector<unsigned int> idx = { 0, 1, 2 };
-    return buildIndexedMesh(pos, idx);
-}
-
-static MeshGL makeQuad()
-{
-    // Two triangles: (0,1,2) + (0,2,3)
-    std::vector<float> pos = {
-        -0.6f, -0.5f, 0.0f,  // 0
-         0.6f, -0.5f, 0.0f,  // 1
-         0.6f,  0.5f, 0.0f,  // 2
-        -0.6f,  0.5f, 0.0f   // 3
-    };
-    std::vector<unsigned int> idx = { 0, 1, 2,  0, 2, 3 };
-    return buildIndexedMesh(pos, idx);
-}
-
-static MeshGL makeNGon(int N)
-{
-    // Regular N-gon centered at origin, radius r.
-    // We triangulate using a triangle fan from the center vertex.
-    const float r = 0.65f;
+    // Vertex layout: pos(3), normal(3), uv(2) = 8 floats
+    std::vector<float> v;
+    std::vector<unsigned int> idx;
+    v.reserve((stacks + 1) * (slices + 1) * 8);
     const float PI = 3.14159265358979323846f;
 
-    // positions: [center] + N ring vertices
-    std::vector<float> pos;
-    pos.reserve((N+1)*3);
-
-    // center
-    pos.push_back(0.0f); pos.push_back(0.0f); pos.push_back(0.0f);
-
-    for(int i=0;i<N;i++)
+    for (int i = 0; i <= stacks; ++i)
     {
-        float a = (2.0f*PI*i)/N;
-        pos.push_back(r*std::cos(a));
-        pos.push_back(r*std::sin(a));
-        pos.push_back(0.0f);
+        float t = float(i) / float(stacks); // [0,1]
+        float phi = t * PI;                 // [0,PI]
+        for (int j = 0; j <= slices; ++j)
+        {
+            float s = float(j) / float(slices); // [0,1]
+            float theta = s * 2.0f * PI;        // [0,2PI]
+            float x = std::sin(phi) * std::cos(theta);
+            float y = std::cos(phi);
+            float z = std::sin(phi) * std::sin(theta);
+
+            // Position (unit sphere)
+            glm::vec3 pos(x, y, z);
+            
+            // Normal (same as pos for unit sphere)
+            glm::vec3 n = glm::normalize(pos);
+            
+            // UV
+            glm::vec2 uv(s, 1.0f - t);
+            
+            // pack vertex
+            v.push_back(pos.x);
+            v.push_back(pos.y);
+            v.push_back(pos.z);
+            v.push_back(n.x);
+            v.push_back(n.y);
+            v.push_back(n.z);
+            v.push_back(uv.x);
+            v.push_back(uv.y);
+        }
+    }
+    // Indices (two triangles per quad)
+    const int ring = slices + 1;
+    for (int i = 0; i < stacks; ++i)
+    {
+        for (int j = 0; j < slices; ++j)
+        {
+            int a = i * ring + j;
+            int b = (i + 1) * ring + j;
+            int c = (i + 1) * ring + (j + 1);
+            int d = i * ring + (j + 1);
+            idx.push_back(a);
+            idx.push_back(b);
+            idx.push_back(c);
+            idx.push_back(a);
+            idx.push_back(c);
+            idx.push_back(d);
+        }
     }
 
-    // indices for fan: (0, i, i+1) for i=1..N-1 and wrap
-    std::vector<unsigned int> idx;
-    idx.reserve(N*3);
-    for(int i=1;i<=N;i++)
-    {
-        unsigned int a = 0;
-        unsigned int b = i;
-        unsigned int c = (i % N) + 1; // wrap to 1
-        idx.push_back(a); idx.push_back(b); idx.push_back(c);
-    }
-
-    return buildIndexedMesh(pos, idx);
-}
-
-static void setWindowTitle(GLFWwindow* w, Mode mode, int N)
-{
-    std::string title = "Lab 1 - Polygons | Mode: ";
-    if(mode==Mode::TRIANGLE) title += "Triangle";
-    else if(mode==Mode::QUAD) title += "Quad";
-    else title += "N-gon (N=" + std::to_string(N) + ")";
-    glfwSetWindowTitle(w, title.c_str());
+    return buildIndexedMesh(v, idx);
 }
 
 int main()
@@ -149,100 +157,194 @@ int main()
         return 1;
     }
 
-    // Basic shader (solid color + MVP)
-    Shader shader;
-    shader.CreateFromFiles("Shaders/Lab1/basic.vert", "Shaders/Lab1/basic.frag");
+    GLFWwindow *w = mainWindow.getWindow();
+    glfwSetWindowTitle(w, "Lab 2 - Physically Based Rendering (PBR)");
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
 
-    GLuint uMVP = shader.GetUniformLocation("uMVP");
-    GLuint uColor = shader.GetUniformLocation("uColor");
+    // PBR shader
+    Shader pbr;
+    pbr.CreateFromFiles("Shaders/Lab2/pbr.vert", "Shaders/Lab2/pbr.frag");
 
-    // Build initial meshes
-    MeshGL tri = makeTriangle();
-    MeshGL quad = makeQuad();
+    GLuint uModel = pbr.GetUniformLocation("uModel");
+    GLuint uView = pbr.GetUniformLocation("uView");
+    GLuint uProj = pbr.GetUniformLocation("uProj");
+    GLuint uCamPos = pbr.GetUniformLocation("uCamPos");
+    GLuint uAlbedo = pbr.GetUniformLocation("uAlbedo");
+    GLuint uMetallic = pbr.GetUniformLocation("uMetallic");
+    GLuint uRoughness = pbr.GetUniformLocation("uRoughness");
+    GLuint uAO = pbr.GetUniformLocation("uAO");
 
-    int N = 8;
-    MeshGL ngon = makeNGon(N);
+    auto srgbToLinear = [](glm::vec3 c)
+    {
+        return glm::vec3(std::pow(c.x, 2.2f), std::pow(c.y, 2.2f), std::pow(c.z, 2.2f));
+    };
 
-    Mode mode = Mode::TRIANGLE;
-    GLFWwindow* w = mainWindow.getWindow();
-    setWindowTitle(w, mode, N);
+    GLuint uLightCount = pbr.GetUniformLocation("uLightCount");
 
-    // Simple camera-like transform (just MVP for 2D-ish viewing)
-    glm::mat4 proj = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
-    glm::mat4 view = glm::mat4(1.0f);
+    GLuint uLightPos0 = pbr.GetUniformLocation("uLightPos[0]");
+    GLuint uLightPos1 = pbr.GetUniformLocation("uLightPos[1]");
+    GLuint uLightPos2 = pbr.GetUniformLocation("uLightPos[2]");
+    GLuint uLightPos3 = pbr.GetUniformLocation("uLightPos[3]");
+
+    GLuint uLightCol0 = pbr.GetUniformLocation("uLightColor[0]");
+    GLuint uLightCol1 = pbr.GetUniformLocation("uLightColor[1]");
+    GLuint uLightCol2 = pbr.GetUniformLocation("uLightColor[2]");
+    GLuint uLightCol3 = pbr.GetUniformLocation("uLightColor[3]");
+
+    // Build meshes
+    MeshGL sphere = makeSphere(32, 64);
+    glm::vec3 camPos(0.0f, 0.0f, 13.6f);
+    glm::mat4 view = glm::lookAt(camPos, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f),
+                                      float(WIDTH) / float(HEIGHT),
+                                      0.1f, 100.0f);
 
     glClearColor(0.08f, 0.08f, 0.10f, 1.0f);
 
+    float metallic = 1.0f;
+    float roughness = 0.2f;
+    glm::vec3 albedo(1.0f, 0.886f, 0.608f); // Proper gold albedo
+    GLfloat ao = 1.0f;
+    bool singleSphere = false; // Toggle between grid and single sphere
+
+    // Helper clamp
+    auto clampf = [](float x, float lo, float hi) {
+        return std::max(lo, std::min(hi, x));
+    };
+    
     while (!glfwWindowShouldClose(w))
     {
         glfwPollEvents();
-
+     
         // --- One-press-per-action input (avoids fast auto-repeat when key is held)
         static int prev[GLFW_KEY_LAST + 1] = {0};
-        auto pressedOnce = [&](int key) -> bool {
+        auto pressedOnce = [&](int key) -> bool
+        {
             int cur = glfwGetKey(w, key);
             bool fired = (cur == GLFW_PRESS && prev[key] != GLFW_PRESS);
             prev[key] = cur;
             return fired;
         };
-
-        if (pressedOnce(GLFW_KEY_ESCAPE))
+     
+        if (pressedOnce(GLFW_KEY_ESCAPE)) {
             glfwSetWindowShouldClose(w, GLFW_TRUE);
+        }
+        
+        // Toggle between single sphere and grid
+        if (pressedOnce(GLFW_KEY_G)) {
+            singleSphere = !singleSphere;
+        }
 
-        // Mode switches (one press)
-        if (pressedOnce(GLFW_KEY_1)) { mode = Mode::TRIANGLE; setWindowTitle(w, mode, N); }
-        if (pressedOnce(GLFW_KEY_2)) { mode = Mode::QUAD;     setWindowTitle(w, mode, N); }
-        if (pressedOnce(GLFW_KEY_3)) { mode = Mode::NGON;     setWindowTitle(w, mode, N); }
-
-
-        // Adjust N only in NGON mode (simple key polling; good enough for lab)
-        if (mode == Mode::NGON)
+        // cycle albedo presets to see material response better
+        if (pressedOnce(GLFW_KEY_C))
         {
-            bool rebuild = false;
-            if (pressedOnce(GLFW_KEY_UP))   { N = std::min(64, N+1); rebuild = true; }
-            if (pressedOnce(GLFW_KEY_DOWN)) { N = std::max(3,  N-1); rebuild = true; }
-            if (rebuild)
-            {
-                ngon.destroy();
-                ngon = makeNGon(N);
-                setWindowTitle(w, mode, N);
+            static int preset = 0;
+            preset = (preset + 1) % 3;
+            if (preset == 0) {
+                albedo = glm::vec3(1.0f, 0.886f, 0.608f); // Brass
+            }
+            if (preset == 1) {
+                albedo = glm::vec3(0.955f, 0.638f, 0.538f); // Copper
+            }
+            if (preset == 2) {
+                albedo = glm::vec3(0.804f, 0.498f, 0.196f); // Bronze
             }
         }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+        pbr.UseShader();
+        glUniformMatrix4fv(uView, 1, GL_FALSE, &view[0][0]);
+        glUniformMatrix4fv(uProj, 1, GL_FALSE, &proj[0][0]);
+        glUniform3f(uCamPos, camPos.x, camPos.y, camPos.z);
 
-        shader.UseShader();
-
-        // A tiny rotation just to show MVP is working
         float t = static_cast<float>(glfwGetTime());
-        glm::mat4 model = glm::rotate(glm::mat4(1.0f), 0.15f*t, glm::vec3(0,0,1));
-        glm::mat4 mvp = proj * view * model;
-        glUniformMatrix4fv(uMVP, 1, GL_FALSE, &mvp[0][0]);
+        
+        // Circular motion around the grid
+        glm::vec3 lightPos0(6.0f * std::cos(t * 0.7f), 4.0f, 6.0f * std::sin(t * 0.7f));
+        glm::vec3 lightPos1(6.0f * std::cos(t * 0.7f + 3.14159f), 4.0f, 6.0f * std::sin(t * 0.7f + 3.14159f));
+        glm::vec3 lightPos2(0.0f, 6.0f + 1.5f * std::sin(t * 1.3f), 0.0f);
+        glm::vec3 lightPos3(8.0f * std::cos(t * 0.35f), -2.5f, 8.0f * std::sin(t * 0.35f));
+        
+        // Intensities (more reasonable for PBR)
+        glm::vec3 lightCol0(15.0f, 15.0f, 15.0f);
+        glm::vec3 lightCol1(10.0f, 10.0f, 10.0f);
+        glm::vec3 lightCol2(8.0f, 8.0f, 8.0f);
+        glm::vec3 lightCol3(5.0f, 5.0f, 5.0f);
+        
+        // Upload light dataA
+        glUniform1i(uLightCount, 4);
+        glUniform3fv(uLightPos0, 1, &lightPos0[0]);
+        glUniform3fv(uLightPos1, 1, &lightPos1[0]);
+        glUniform3fv(uLightPos2, 1, &lightPos2[0]);
+        glUniform3fv(uLightPos3, 1, &lightPos3[0]);
+        
+        // Upload colors
+        glUniform3fv(uLightCol0, 1, &lightCol0[0]);
+        glUniform3fv(uLightCol1, 1, &lightCol1[0]);
+        glUniform3fv(uLightCol2, 1, &lightCol2[0]);
+        glUniform3fv(uLightCol3, 1, &lightCol3[0]);
+        
+        // ---- Material constants
+        glm::vec3 albedoSRGB = albedo;
+        glm::vec3 albedoLin = srgbToLinear(albedoSRGB);
 
-        // Choose color by mode
-        glm::vec3 color(0.2f, 0.9f, 0.7f);
-        if (mode == Mode::TRIANGLE) color = glm::vec3(0.95f, 0.55f, 0.20f);
-        if (mode == Mode::QUAD)     color = glm::vec3(0.35f, 0.70f, 1.00f);
-        if (mode == Mode::NGON)     color = glm::vec3(0.75f, 0.85f, 0.30f);
-        glUniform3f(uColor, color.x, color.y, color.z);
+        glUniform3f(uAlbedo, albedoLin.x, albedoLin.y, albedoLin.z);
+        glUniform1f(uAO, ao);
 
-        // Draw
-        const MeshGL* drawMesh = &tri;
-        if (mode == Mode::QUAD) drawMesh = &quad;
-        if (mode == Mode::NGON) drawMesh = &ngon;
+        // ---- Grid parameters
+        const int rows = 5; // metallic
+        const int cols = 5; // roughness
+        const float spacing = 2.2f; // distance between spheres
+        const float startX = -0.5f * (cols - 1) * spacing;
+        const float startY = -0.5f * (rows - 1) * spacing;
+        
+        // Draw spheres
+        glBindVertexArray(sphere.VAO);
+        
+        if (singleSphere) {
+            // Single sphere mode - use the material values set above
+            glUniform1f(uMetallic, metallic);
+            glUniform1f(uRoughness, roughness);
+            
+            glm::mat4 model(1.0f);
+            model = glm::scale(model, glm::vec3(2.0f)); // Make it bigger
+            
+            glUniformMatrix4fv(uModel, 1, GL_FALSE, &model[0][0]);
+            glDrawElements(GL_TRIANGLES, sphere.indexCount, GL_UNSIGNED_INT, 0);
+        } else {
+            // Grid mode - varying metallic and roughness
+            for (int r = 0; r < rows; r++)
+            {
+                // metallic from 0 -> 1 across rows
+                float m = float(r) / float(rows - 1); // 0..1
+                glUniform1f(uMetallic, m);
+                for (int c = 0; c < cols; c++)
+                {
+                    // roughness from 0.05 -> 1 across columns
+                    float t = float(c) / float(cols - 1); // 0..1
+                    float rough = 0.05f + t * (1.0f - 0.05f); // 0.05..1
+                    glUniform1f(uRoughness, rough);
+                    
+                    float x = startX + c * spacing;
+                    float y = startY + (rows - 1 - r) * spacing; // top row = r=0
 
-        glBindVertexArray(drawMesh->VAO);
-        glDrawElements(GL_TRIANGLES, drawMesh->indexCount, GL_UNSIGNED_INT, 0);
+                    glm::mat4 model(1.0f);
+                    model = glm::translate(model, glm::vec3(x, y, 0.0f));
+                    model = glm::scale(model, glm::vec3(1.0f)); // optional
+                    
+                    glUniformMatrix4fv(uModel, 1, GL_FALSE, &model[0][0]);
+                    glDrawElements(GL_TRIANGLES, sphere.indexCount, GL_UNSIGNED_INT, 0);
+                }
+            }
+        }
+
         glBindVertexArray(0);
-
         glUseProgram(0);
-
         glfwSwapBuffers(w);
     }
 
-    tri.destroy();
-    quad.destroy();
-    ngon.destroy();
-
+    sphere.destroy();
     return 0;
 }
